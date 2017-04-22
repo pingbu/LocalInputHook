@@ -18,22 +18,25 @@ public final class LocalInputHook {
 
 	protected static final String TAG = LocalInputHook.class.getSimpleName();
 
-	public interface Listener {
-		public boolean onHookInput(InputEvent event);
+	public static abstract class Handler {
+		public void onPreInput(int seq, InputEvent event) {
+			sInputEventSender.sendInputEvent(seq, event);
+		}
+
+		public void onPostInput(int seq, boolean handled) {
+		}
 	}
 
 	private static int sSeq = 0;
-	private static Listener sListener;
+	private static Handler sHandler;
 	private static IWindowSession sWindowSession;
 	private static InputEventSender sInputEventSender;
 
 	private static InvocationHandler sWindowSessionHook = new InvocationHandler() {
 		@Override
-		public Object invoke(Object proxy, Method method, Object[] args)
-				throws Throwable {
+		public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
 			if (method.getName().startsWith("add")
-					&& method.getParameterTypes()[args.length - 1]
-							.equals(InputChannel.class)) {
+					&& method.getParameterTypes()[args.length - 1].equals(InputChannel.class)) {
 				Log.d(TAG, "invoke sWindowSession." + method.getName());
 
 				InputChannel oldInputChannel = (InputChannel) args[args.length - 1];
@@ -45,19 +48,26 @@ public final class LocalInputHook {
 				new InputEventReceiver(newInputChannel, Looper.myLooper()) {
 					@Override
 					public void onInputEvent(InputEvent event) {
-						if (sListener == null || !sListener.onHookInput(event))
-							sInputEventSender.sendInputEvent(sSeq++, event);
+						int seq = sSeq++;
+						if (sHandler != null)
+							sHandler.onPreInput(seq, event);
+						else
+							sInputEventSender.sendInputEvent(seq, event);
 						super.onInputEvent(event);
 					}
 				};
 
 				InputChannel[] inputChannels = InputChannel
-						.openInputChannelPair(TAG + "#"
-								+ android.os.Process.myPid());
+						.openInputChannelPair(TAG + "#" + android.os.Process.myPid());
 				inputChannels[1].transferTo(oldInputChannel);
 
-				sInputEventSender = new InputEventSender(inputChannels[0],
-						Looper.myLooper()) {
+				sInputEventSender = new InputEventSender(inputChannels[0], Looper.myLooper()) {
+					@Override
+					public void onInputEventFinished(int seq, boolean handled) {
+						if (sHandler != null)
+							sHandler.onPostInput(seq, handled);
+						super.onInputEventFinished(seq, handled);
+					}
 				};
 
 				return r;
@@ -67,25 +77,20 @@ public final class LocalInputHook {
 		}
 	};
 
-	public static boolean init(Context context, Listener listener) {
+	public static boolean init(Context context, Handler handler) {
 		try {
-			Class<?> wmGlobalClass = Class
-					.forName("android.view.WindowManagerGlobal");
-			Field sWindowSessionFiled = wmGlobalClass
-					.getDeclaredField("sWindowSession");
+			Class<?> wmGlobalClass = Class.forName("android.view.WindowManagerGlobal");
+			Field sWindowSessionFiled = wmGlobalClass.getDeclaredField("sWindowSession");
 			sWindowSessionFiled.setAccessible(true);
 
 			sWindowSession = (IWindowSession) sWindowSessionFiled.get(null);
 			if (sWindowSession != null)
 				throw new Exception(TAG + " must be init once while app create");
 
-			sListener = listener;
-			sWindowSession = (IWindowSession) wmGlobalClass.getMethod(
-					"getWindowSession").invoke(null);
-			sWindowSessionFiled.set(null,
-					Proxy.newProxyInstance(context.getClassLoader(),
-							new Class<?>[] { IWindowSession.class },
-							sWindowSessionHook));
+			sHandler = handler;
+			sWindowSession = (IWindowSession) wmGlobalClass.getMethod("getWindowSession").invoke(null);
+			sWindowSessionFiled.set(null, Proxy.newProxyInstance(context.getClassLoader(),
+					new Class<?>[] { IWindowSession.class }, sWindowSessionHook));
 			return true;
 		} catch (Exception e) {
 			e.printStackTrace();

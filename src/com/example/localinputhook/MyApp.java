@@ -13,16 +13,22 @@ public class MyApp extends Application {
 	@Override
 	public void onCreate() {
 		super.onCreate();
-		LocalInputHook.init(this, new LocalInputHook.Listener() {
+		LocalInputHook.init(this, new LocalInputHook.Handler() {
 			@Override
-			public boolean onHookInput(InputEvent event) {
-				Log.d(TAG, "onHookInput event=" + event);
+			public void onPreInput(int seq, InputEvent event) {
+				Log.d(TAG, "onPreInput seq=" + seq + ", event=" + event);
 				if (event.isFromSource(InputDevice.SOURCE_KEYBOARD)
 						&& ((KeyEvent) event).getKeyCode() == KeyEvent.KEYCODE_DPAD_RIGHT) {
 					Log.d(TAG, "hooked!!!");
-					return true;
+				} else {
+					super.onPreInput(seq, event);
 				}
-				return false;
+			}
+
+			@Override
+			public void onPostInput(int seq, boolean handled) {
+				Log.d(TAG, "onPostInput seq=" + seq + ", handled=" + handled);
+				super.onPostInput(seq, handled);
 			}
 		});
 	}
