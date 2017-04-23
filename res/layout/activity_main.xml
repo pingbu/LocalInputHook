@@ -6,11 +6,33 @@
     android:paddingLeft="@dimen/activity_horizontal_margin"
     android:paddingRight="@dimen/activity_horizontal_margin"
     android:paddingTop="@dimen/activity_vertical_margin"
-    tools:context="com.example.localinputhook.MainActivity" >
+    tools:context=".MainActivity" >
 
-    <TextView
+    <Button
+        android:id="@+id/button_dialog"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="@string/hello_world" />
+        android:text="@string/button_dialog" />
+
+    <Button
+        android:id="@+id/button_window"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/button_dialog"
+        android:text="@string/button_window" />
+
+    <Button
+        android:id="@+id/button_another_activity"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/button_window"
+        android:text="@string/button_another_activity" />
+
+    <Button
+        android:id="@+id/button_another_process"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/button_another_activity"
+        android:text="@string/button_another_process" />
 
 </RelativeLayout>
